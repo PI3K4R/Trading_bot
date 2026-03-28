@@ -9,7 +9,16 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 sc = StandardScaler()
+
 def PnL_scorer_nn(y_test, y_pred):
+
+    """
+    Custom metrics of measuring bot performance
+    :param y_test: testing labels
+    :param y_pred: predicted labels
+    :return: value from -1 to 1. The best models should have values as close to 1 as possible
+    """
+
     conf_mtrx = confusion_matrix(y_test, y_pred, labels=[0, 1, 2])
     total_trades = conf_mtrx[:, [0, 2]].sum()
     if total_trades == 0:
@@ -20,16 +29,17 @@ def PnL_scorer_nn(y_test, y_pred):
     return coverage * (2 * TA - 1)
 
 
+# preparing data
 indicators_data = pd.read_csv("NVIDIA_indicators_dataset.csv", index_col='Date')
 indicators_df = indicators_data.iloc[:-10]
 price_data = pd.read_csv("NVIDIA_price_data_main.csv", index_col="Date")
 
 labels = np.zeros(len(indicators_data)-10)
 
+# creating labels -1 if short 0 if consolidation 1 if long with r=0.03
 for i in range(1, labels.size):
     future_cndls = price_data.iloc[i: i+10].reset_index(drop=True)
 
-    # creating labels -1 if short 0 if consolidation 1 if long
     for idx in range(10):
         if future_cndls.loc[idx, "High"] > price_data.iloc[i - 1]["Close/Last"]*(1.03) and future_cndls.loc[idx, "Low"] < price_data.iloc[i - 1]["Close/Last"]*(0.97):
             break
@@ -48,13 +58,17 @@ y = indicators_df.iloc[:, -1]
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
 
 X_train_std = sc.fit_transform(X_train)
-X_test_std  = sc.transform(X_test)
+X_test_std = sc.transform(X_test)
 
+# for CrossEntropyLoss labels should have values from {0, 1, 2}
 y_train_1 = y_train + 1
 y_test_1 = y_test + 1
+
 n_train = 100
+
 x_train_tensor = torch.tensor(X_train_std, dtype=torch.float32)
 y_train_tensor = torch.tensor(y_train_1.to_numpy(), dtype=torch.long)
+
 x_valid = torch.tensor(X_test_std, dtype=torch.float32)
 y_valid = torch.tensor(y_test_1.to_numpy(), dtype=torch.long)
 
